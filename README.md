@@ -11,6 +11,11 @@ Unlike non-autoregressive discrete diffusion architectures, this framework utili
 
 ---
 
+## Pretrain Outputs
+![Transformer Results](transformer_generations.svg)
+
+---
+
 ## Repository Structure
 
 * model_ar.py — Core causal transformer token prediction logic and sequence modeling configurations.
