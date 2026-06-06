@@ -48,17 +48,22 @@ def get_lr(step, warmup_steps, total_steps, base_lr):
 if __name__ == "__main__":
     # ── Config ──────────────────────────────────────────────────────
     class args:
-        csv                  = "/storage/home/hcoda1/2/vyadav68/scratch/polymers/PI1M_v2_pselfies.csv"
+        csv                  = "/storage/home/hcoda1/2/vyadav68/r-cdeo3-0/polymers/PI1M_v2_pselfies.csv"
         epochs               = 10
         batch_size           = 256
         lr                   = 3e-4
         weight_decay = 0.01
         max_length   = 128
-        save_dir     = "checkpoints/pretrain"
+        # Split Tracking Parameters
+        SCRATCH_DIR      = "/storage/home/hcoda1/2/vyadav68/scratch/polymers/checkpoints/pretrain"
+        HOME_DIR         = "./checkpoints/pretrain" # Base project tracking path
         num_workers  = 4
         USE_COMPILE  = True  # Added toggle flag for fullgraph compilation tracking
         RESUME_FROM_STEP = 18000  # Set to None to disable resuming from a specific step
     # ────────────────────────────────────────────────────────────────
+
+    os.makedirs(args.SCRATCH_DIR, exist_ok=True)
+    os.makedirs(args.HOME_DIR, exist_ok=True)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
@@ -71,7 +76,10 @@ if __name__ == "__main__":
     print(f"Loaded {len(pselfies_list)} PSELFIES strings")
 
     # Build or load tokenizer
-    tokenizer_path = f"{args.save_dir}/tokenizer.pt"
+    tokenizer_path = os.path.join(args.HOME_DIR, "tokenizer.pt")
+    if not os.path.exists(tokenizer_path):
+        tokenizer_path = os.path.join(args.SCRATCH_DIR, "tokenizer.pt")
+
     if os.path.exists(tokenizer_path):
         print(f"Loading tokenizer from {tokenizer_path}")
         tokenizer = PSELFIESTokenizer.load(tokenizer_path)
@@ -79,8 +87,7 @@ if __name__ == "__main__":
         print("Building tokenizer...")
         tokenizer = PSELFIESTokenizer(max_length=args.max_length)
         tokenizer.build_vocab(pselfies_list, min_freq=1)
-        os.makedirs(args.save_dir, exist_ok=True)
-        tokenizer.save(tokenizer_path)
+        tokenizer.save(os.path.join(args.SCRATCH_DIR, "tokenizer.pt"))
 
     # Train/val split
     train_size = int(0.95 * len(pselfies_list))
@@ -175,7 +182,8 @@ if __name__ == "__main__":
 
     # ── NEW LOADING ENGINE: CAUSAL TRANSFORMER RESUME ROUTINE ────────
     if args.RESUME_FROM_STEP is not None:
-        checkpoint_path = os.path.join(args.save_dir, f"checkpoint-{args.RESUME_FROM_STEP}", "model.pt")
+        # Route loading path strictly to scratch directory allocations
+        checkpoint_path = os.path.join(args.SCRATCH_DIR, f"checkpoint-{args.RESUME_FROM_STEP}", "model.pt")
         if os.path.exists(checkpoint_path):
             print(f"\n🔄 Resuming Causal AR Transformer pretraining from step {args.RESUME_FROM_STEP}...")
             checkpoint = torch.load(checkpoint_path, map_location=device)
@@ -256,7 +264,7 @@ if __name__ == "__main__":
             pbar.set_postfix({"loss": loss.item(), "lr": lr})
 
             if global_step % SAVE_STEPS == 0:
-                interval_path = os.path.join(args.save_dir, f"checkpoint-{global_step}")
+                interval_path = os.path.join(args.SCRATCH_DIR, f"checkpoint-{global_step}")
                 os.makedirs(interval_path, exist_ok=True)
                 
                 checkpoint = {
@@ -328,12 +336,14 @@ if __name__ == "__main__":
             "epoch": epoch + 1,
         }
 
-        torch.save(checkpoint, f"{args.save_dir}/last_pretrain.pt")
+        # Save checkpoints to permanent Home directory project paths
+        torch.save(checkpoint, f"{args.HOME_DIR}/last_pretrain.pt")
 
         if val_loss < best_val_loss:
             best_val_loss = val_loss
-            torch.save(checkpoint, f"{args.save_dir}/best_pretrain.pt")
-            print(f"Saved best model (val_loss={val_loss:.4f})")
+            torch.save(checkpoint, f"{args.HOME_DIR}/best_pretrain.pt")
+            tokenizer.save(f"{args.HOME_DIR}/tokenizer.pt") # Ensure tokenizer is archived beside best model
+            print(f"Saved best model to home (val_loss={val_loss:.4f})")
     
     try:
         print("\n📊 Generating optimization evaluation plots...")
@@ -341,7 +351,7 @@ if __name__ == "__main__":
         matplotlib.use('Agg')  # Suppress UI popups on remote cluster nodes
         import matplotlib.pyplot as plt
 
-        plot_dir = os.path.join(args.save_dir, "plots")
+        plot_dir = os.path.join(args.HOME_DIR, "plots")
         os.makedirs(plot_dir, exist_ok=True)
 
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))

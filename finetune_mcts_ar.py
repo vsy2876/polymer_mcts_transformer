@@ -612,7 +612,10 @@ if __name__ == "__main__":
         n_simulations  = 50
         kl_weight      = 0.1
         lr             = 1e-4
-        save_dir       = "checkpoints/mcts"
+        # Split Tracking Parameters
+        SCRATCH_DIR      = "/storage/home/hcoda1/2/vyadav68/scratch/polymers/checkpoints/mcts"
+        HOME_DIR         = "./checkpoints/mcts" # Base project tracking path
+
         save_every     = 100
         USE_COMPILE    = True  # Toggle flag for fullgraph compilation tracking
     # ────────────────────────────────────────────────────────────────
@@ -666,7 +669,7 @@ if __name__ == "__main__":
     hf_capture.torch = torch
     # ────────────────────────────────────────────────────────────────
 
-    # Initialize trainer
+    # Initialize trainer, passing SCRATCH_DIR for high-frequency runtime operations
     trainer = MCTSFineTuner(
         policy_model=policy_model,
         reference_model=reference_model,
@@ -676,7 +679,7 @@ if __name__ == "__main__":
         n_simulations=args.n_simulations,
         kl_weight=args.kl_weight,
         lr=args.lr,
-        save_dir=args.save_dir,  # Maps active file locations cleanly
+        save_dir=args.SCRATCH_DIR,  # <-- Route runtime logs (sequence_log.csv) to scratch
     )
 
     # ── COMPILATION ROUTINE ─────────────────────────────────────────
@@ -711,10 +714,34 @@ if __name__ == "__main__":
             args.USE_COMPILE = False
     # ────────────────────────────────────────────────────────────────
 
-    os.makedirs(args.save_dir, exist_ok=True)
+    # Ensure both physical paths exist before the training loop kicks off
+    os.makedirs(args.SCRATCH_DIR, exist_ok=True)
+    os.makedirs(args.HOME_DIR, exist_ok=True)
+
+    # Optional Resume Hook Integration
+    RESUME_FROM_ITER = 18000  # Set to an integer step to resume from scratch, or None to start fresh
+    start_iteration = 0
+
+    if RESUME_FROM_ITER is not None:
+        resume_path = os.path.join(args.SCRATCH_DIR, f"mcts_iter_{RESUME_FROM_ITER}.pt")
+        if os.path.exists(resume_path):
+            print(f"🔄 Resuming MCTS Finetuning from scratch checkpoint: {resume_path}")
+            checkpoint_data = torch.load(resume_path, map_location=device)
+            
+            # Unpack weights safely regardless of torch.compile state wrappers
+            raw_state_dict = checkpoint_data["model_state_dict"]
+            if any(k.startswith('_orig_mod.') for k in raw_state_dict.keys()) and not args.USE_COMPILE:
+                raw_state_dict = {k.replace('_orig_mod.', ''): v for k, v in raw_state_dict.items()}
+            
+            policy_model.load_state_dict(raw_state_dict)
+            start_iteration = checkpoint_data.get("iteration", RESUME_FROM_ITER)
+        else:
+            print(f"⚠️ Target checkpoint '{resume_path}' not found. Booting fresh weights.")
+
+    print(f"🚀 Starting fine-tuning execution loop at iteration {start_iteration + 1}")
 
     # Training loop
-    for iteration in range(args.iterations):
+    for iteration in range(start_iteration, args.iterations):
         # Sample target in original scale, then normalize
         target_raw = random.uniform(args.target_min, args.target_max)
         target_norm = (target_raw - args.target_min) / (args.target_max - args.target_min)
@@ -738,8 +765,8 @@ if __name__ == "__main__":
                 f"xtb_calls={trainer.mcts.true_oracle_calls}"
             )
             
-            # Export tracking parameters to CSV for comparative analysis plots
-            log_path = f"{args.save_dir}/ar_sample_efficiency_metrics.csv"
+            # Export sample efficiency tracking parameters to permanent HOME directory
+            log_path = f"{args.HOME_DIR}/ar_sample_efficiency_metrics.csv"
             new_row = pd.DataFrame([{
                 "iteration":        iteration + 1,
                 "loss":             metrics['loss'],
@@ -757,12 +784,26 @@ if __name__ == "__main__":
                 new_row.to_csv(log_path, mode='w', header=True, index=False)
 
         if (iteration + 1) % args.save_every == 0:
+            # Route intermediate weights strictly to high-performance scratch space
             torch.save({
                 "model_state_dict": policy_model.state_dict(),
                 "iteration": iteration + 1,
                 "target_min": args.target_min,
                 "target_max": args.target_max,
-            }, f"{args.save_dir}/mcts_iter_{iteration+1}.pt")
-            print(f"Saved checkpoint at iteration {iteration+1}")
+            }, f"{args.SCRATCH_DIR}/mcts_iter_{iteration+1}.pt")
+            print(f"Saved intermediate checkpoint to scratch at iteration {iteration+1}")
 
     print("MCTS finetuning complete!")
+
+    # ── SAVE FINAL TARGET ARTIFACTS TO HOME ────────────────────────
+    final_checkpoint_path = f"{args.HOME_DIR}/final_mcts_ar_policy.pt"
+    torch.save({
+        "model_state_dict": policy_model.state_dict(),
+        "iteration": args.iterations,
+        "target_min": args.target_min,
+        "target_max": args.target_max,
+    }, final_checkpoint_path)
+    
+    # Mirror copy the tokenizer into home beside it for immediate pipeline serving
+    tokenizer.save(f"{args.HOME_DIR}/tokenizer.pt")
+    print(f"🎉 Production-ready fine-tuned model and tokenizer archived safely in home: {final_checkpoint_path}")
