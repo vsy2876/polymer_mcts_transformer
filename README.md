@@ -12,7 +12,7 @@ Unlike non-autoregressive discrete diffusion architectures, this framework utili
 ---
 
 ## Pretrain Outputs
-![Transformer Results](transformer_generations.svg)
+![Transformer Results](transformer_generations.png)
 
 ---
 
