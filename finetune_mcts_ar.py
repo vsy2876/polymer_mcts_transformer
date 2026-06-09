@@ -613,7 +613,7 @@ if __name__ == "__main__":
         kl_weight      = 0.1
         lr             = 1e-4
         # Split Tracking Parameters
-        SCRATCH_DIR      = "/storage/home/hcoda1/2/vyadav68/scratch/polymers/checkpoints/mcts"
+        SCRATCH_DIR      = "/storage/home/hcoda1/2/vyadav68/scratch/polymers/mcts_transformer/checkpoints/mcts"
         HOME_DIR         = "./checkpoints/mcts" # Base project tracking path
 
         save_every     = 100

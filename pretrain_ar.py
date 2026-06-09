@@ -55,7 +55,7 @@ if __name__ == "__main__":
         weight_decay = 0.01
         max_length   = 128
         # Split Tracking Parameters
-        SCRATCH_DIR      = "/storage/home/hcoda1/2/vyadav68/scratch/polymers/checkpoints/pretrain"
+        SCRATCH_DIR      = "/storage/home/hcoda1/2/vyadav68/scratch/polymers/mcts_transformer/checkpoints/pretrain"
         HOME_DIR         = "./checkpoints/pretrain" # Base project tracking path
         num_workers  = 4
         USE_COMPILE  = True  # Added toggle flag for fullgraph compilation tracking
