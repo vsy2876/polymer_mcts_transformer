@@ -86,7 +86,7 @@ if __name__ == "__main__":
     else:
         print("Building tokenizer...")
         tokenizer = PSELFIESTokenizer(max_length=args.max_length)
-        tokenizer.build_vocab(pselfies_list, min_freq=1)
+        tokenizer.build_vocab(pselfies_list, min_freq=2)
         tokenizer.save(os.path.join(args.SCRATCH_DIR, "tokenizer.pt"))
 
     # Train/val split
