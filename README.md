@@ -9,6 +9,8 @@ Unlike non-autoregressive discrete diffusion architectures, this framework utili
 * AlphaZero-Style Search Guidance: Integrates an active Monte Carlo Tree Search framework where the autoregressive transformer acts as the prior policy network, guiding token node selection and expansion during tree lookahead.
 * Robust Grammatical Enforcements: Operating entirely on top of polymer-adapted SELFIES (PSELFIES), the search space completely eliminates the structural invalidity traps common to standard SMILES string generation.
 
+** Note: This repository is being actively revised as part of a version 2 update to the model. The README and results above will be updated to reflect the new version once the repo changes are complete.**
+
 ---
 
 ## Pretrain Outputs
