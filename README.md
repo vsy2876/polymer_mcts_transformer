@@ -16,6 +16,25 @@ Unlike non-autoregressive discrete diffusion architectures, this framework utili
 
 ---
 
+## Results
+ 
+**Status: evaluation in progress.**
+ 
+This repo implements Phase 3 (online MCTS-guided RL) of the pipeline for the
+autoregressive transformer model.
+ 
+Quantitative results for this repo — post-search validity rate, target-property MAE, and
+xTB simulation success rate — will be added once the current evaluation run completes.
+ 
+### Failure modes diagnosed (see full writeup below / in commit history)
+ 
+- **The Ethane Trap:** policy collapsed to trivial `[At][C][C][At]` generation, diagnosed
+  via a spike in KL divergence against the frozen reference policy. Fixed via a heavy-atom
+  hard block, soft size discount, and a slowed KL beta schedule with a raised floor and
+  hard threshold.
+
+---
+
 ## Repository Structure
 
 * model_ar.py — Core causal transformer token prediction logic and sequence modeling configurations.
